@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://download.affectiva.com/js/3.2.1/affdex.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    #overlay, #affectiva_overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    video {
+      display: inline-block;
+      width: 95%;
+    }
+    canvas#overlay, canvas#affectiva_overlay {
+      width: 95%;
+    }
+    .container {
+      padding-top: 4%;
+    }
+    #affectiva_overlay, #overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #results > div > div:nth-child(1) > h5 > mark {
+      background-image: linear-gradient(to right, rgba(0, 255, 0, 0.7) 4%, rgba(0, 255, 0, 0.3));
+    }
+    #results > div > div:nth-child(2) > h5 > mark {
+      background-image: linear-gradient(to right, rgba(0, 0, 255, 0.7) 4%, rgba(12, 12, 234, 0.701));
+    }
+    .popup {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      z-index: 9999;
+    }
+    .popup-content {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 5px;
+    }
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      cursor: pointer;
+    }
+    .set-container {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .set-box {
+      background-color: #f1f1f1;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 30%;
+      text-align: center;
+    }
+    .set-box h3 {
+      margin: 0;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .btn {
+      background-color: #4CAF50;
+      color: white;
+
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 9px;
+
+    }
+    .btn-blue {
+      background-color: #2196F3;
+    }
+    .btn-orange {
+      background-color: #FF9800;
+    }
+    .set-box:nth-child(2) {
+      background-color: #e1f5fe;
+    }
+    .set-box:nth-child(3) {
+      background-color: #f9fbe7;
+    }
+
+    @media screen and (max-width: 768px) {
+
+    video, canvas {
+      width: 100%;
+      height: auto;
+    }
+
+    .set-container {
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .set-box {
+      width: 100%;
+      margin-bottom: 20px; 
+    }
+
+    .btn {
+      width: 100%;
+      margin: 5px 0; 
+    }
+
+    #results {
+      width: 100%;
+      order: 3; 
+      padding: 10px 0; 
+      display:none;
+    }
+
+    #results .col.s6 {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .container {
+      padding: 0;
+    }
+
+    .popup-content {
+      width: calc(100% - 20px); 
+      height: auto; 
+      border-radius: 0;
+      padding: 10px; 
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: none; 
+    }
+
+    h5, h6, .btn {
+      font-size: 0.8em;
+    }
+
+    .card-panel {
+      margin: 0 5px; 
+    }
+
+    .row, .col {
+      align-items: center;
+      text-align: center;
+    }
+    .row .col.s6 {
+        width: 100%;
+        margin-left: auto;
+        left: auto;
+        right: auto;
+    }
+
+    #inputVideo, .btn {
+      margin-left: auto;
+      margin-right: auto;
+    }
+    }
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col s6">
+        <div id="affdex_elements" style="width: 640px; height: 480px; display: none;"></div>
+        <div style="position: relative;" class="margin">
+          <video id="inputVideo" autoplay muted playsinline class="appl1-hdvd-xx"></video>
+          <canvas id="overlay" width="640" height="480"></canvas>
+          <canvas id="affectiva_overlay" width="640" height="480"></canvas>
+        </div>
+        <div class="row mt-3">
+          <div class="col s12">
+            <button id="start_recording" class="btn btn-success me-2">Start Recording</button>
+            <button id="stop_recording" class="btn btn-danger" disabled>Stop Recording</button>
+          </div>
+        </div>
+        <div class="row mt-3">
+          <div class="col s12">
+            <button id="activate_responses" class="btn btn-primary me-2">Activate Responses</button>
+            <button id="deactivate_responses" class="btn btn-secondary">Deactivate Responses</button>
+            <br />
+            <br />
+          </div>
+          <div class="col s12">
+            <div class="set-container">
+              <div class="set-box">
+                <h6>First Set</h6>
+                <button id="activate_experiment_First_set_ABC" class="btn">ABC</button>
+                <button id="activate_experiment_First_set_BCA" class="btn btn-blue">BCA</button>
+                <button id="activate_experiment_First_set_CAB" class="btn btn-orange">CAB</button>
+              </div>
+              <div class="set-box">
+                <h6>Second Set</h6>
+                <button id="activate_experiment_Second_set_ABC" class="btn">ABC</button>
+                <button id="activate_experiment_Second_set_BCA" class="btn btn-blue">BCA</button>
+                <button id="activate_experiment_Second_set_CAB" class="btn btn-orange">CAB</button>
+              </div>
+              <div class="set-box">
+                <h6>Third Set</h6>
+                <button id="activate_experiment_Third_set_ABC" class="btn">ABC</button>
+                <button id="activate_experiment_Third_set_BCA" class="btn btn-blue">BCA</button>
+                <button id="activate_experiment_Third_set_CAB" class="btn btn-orange">CAB</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col s6">
+        <div id="results" class="card-panel">
+          <h4>Emotion Results</h4>
+          <div class="row">
+            <div class="col s6">
+              <h5>
+                <mark>Affectiva</mark>
+              </h5>
+              <div>
+                <span>Joy:</span>
+                <span id="joy_prob">0</span>%
+              </div>
+              <div>
+                <span>Sadness:</span>
+                <span id="sadness_prob">0</span>%
+              </div>
+              <div>
+                <span>Disgust:</span>
+                <span id="disgust_prob">0</span>%
+              </div>
+              <div>
+                <span>Contempt:</span>
+                <span id="contempt_prob">0</span>%
+              </div>
+              <div>
+                <span>Anger:</span>
+                <span id="anger_prob">0</span>%
+              </div>
+              <div>
+                <span>Fear:</span>
+                <span id="fear_prob">0</span>%
+              </div>
+              <div>
+                <span>Surprise:</span>
+                <span id="surprise_prob">0</span>%
+              </div>
+              <div>
+                <span>Valence:</span>
+                <span id="valence_prob">0</span>%
+              </div>
+              <div>
+                <span>Engagement:</span>
+                <span id="engagement_prob">0</span>%
+              </div>
+            </div>
+            <div class="col s6">
+              <h5>
+                <mark>Face API</mark>
+              </h5>
+              <div>
+                <span>Neutral:</span>
+                <span id="neutral">0</span>%
+              </div>
+              <div>
+                <span>Happy:</span>
+                <span id="happiness">0</span>%
+              </div>
+              <div>
+                <span>Sad:</span>
+                <span id="sadness">0</span>%
+              </div>
+              <div>
+                <span>Angry:</span>
+                <span id="angry">0</span>%
+              </div>
+              <div>
+                <span>Fearful:</span>
+                <span id="fearful">0</span>%
+              </div>
+              <div>
+                <span>Disgusted:</span>
+                <span id="disgusted">0</span>%
+              </div>
+              <div>
+                <span>Surprised:</span>
+                <span id="surprised">0</span>%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="popup" class="popup">
+    <div class="popup-content">
+      <span class="close" onclick="closePopup()">&times;</span>
+      <h1 style="font-size: 1.2rem;line-height: 110%;margin:2.8rem 0 1.68rem 0">Video Player</h1>
+      <video id="videoPlayer" width="320" height="240" controls>
+        <source src="" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  </div>
+
+  <script>
+    let isRecording = false;
+    let emotionData = [];
+    let userId = '';
+    let sessionId = '';
+    let detector;
+    let predominantEmotionData = [];
+    let faceApiData = null;
+    let affectivaData = null;
+    let responsesActivated = false;
+    let predominantEmotionInterval;
+
+    let experimentActivated = false;
+    let currentVideoIndex = 0;
+    let videoFile = '';
+    let emotionLabels = [];
+    let sceneDurations = [];
+
+    let currentVariation;
+
+    function openPopup() {
+      const popup = document.getElementById('popup');
+      popup.style.display = 'block';
+
+      const videoPlayer = document.getElementById('videoPlayer');
+      if (videoPlayer.requestFullscreen) {
+        videoPlayer.requestFullscreen();
+      } else if (videoPlayer.mozRequestFullScreen) { 
+        videoPlayer.mozRequestFullScreen();
+      } else if (videoPlayer.webkitRequestFullscreen) { 
+        videoPlayer.webkitRequestFullscreen();
+      } else if (videoPlayer.msRequestFullscreen) { 
+        videoPlayer.msRequestFullscreen();
+      }
+    }
+
+    function closePopup() {
+      const popup = document.getElementById('popup');
+      popup.style.display = 'none';
+
+      const videoPlayer = document.getElementById('videoPlayer');
+      videoPlayer.pause();
+
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.mozCancelFullScreen) { 
+        document.mozCancelFullScreen();
+      } else if (document.webkitExitFullscreen) { 
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) { 
+        document.msExitFullscreen();
+      }
+    }
+    function activateExperiment(videoSet, variation) {
+      experimentActivated = true;
+      const setIdentifier = videoSet.split('_')[0];
+      console.log(`Activating Experiment: ${setIdentifier}`);
+      const setNumber = videoSet.split('_')[1];
+      currentSetIdentifier = `${setIdentifier}_${variation}_${setNumber}`;
+      $(`#activate_experiment_${videoSet}_${variation}`).prop('disabled', true);
+      videoFile = getVideoFile(videoSet, variation);
+      emotionLabels = getEmotionLabels(variation);
+      sceneDurations = getSceneDurations(videoSet, variation);
+      startRecording();
+      openPopup();
+      playVideo();
+    }
+
+    function getVideoFile(videoSet, variation) {
+      return `VideoPlaylist/${videoSet}_${variation}.mp4`;
+    }
+
+    function getEmotionLabels(variation) {
+    switch (variation) {
+      case 'ABC':
+        return ['Positive', 'Neutral', 'Negative'];
+      case 'BCA':
+        return ['Neutral', 'Positive', 'Negative'];
+      case 'CAB':
+        return ['Negative', 'Positive', 'Neutral'];
+      default:
+        return [];
+    }
+  }
+
+  function getSceneDurations(videoSet, variation) {
+  switch (videoSet) {
+    case 'First_set':
+      switch (variation) {
+        case 'ABC':
+          return [147, 165, 420];
+        case 'BCA':
+          return [18, 271, 420];
+        case 'CAB':
+          return [255, 401, 420];
+        default:
+          return [];
+      }
+    case 'Second_set':
+      switch (variation) {
+        case 'ABC':
+          return [175, 215, 279];
+        case 'BCA':
+          return [40, 215, 279];
+        case 'CAB':
+          return [104, 279, 319];
+        default:
+          return [];
+      }
+    case 'Third_set':
+      switch (variation) {
+        case 'ABC':
+          return [146, 186, 263];
+        case 'BCA':
+          return [40, 186, 263];
+        case 'CAB':
+          return [77, 223, 263];
+        default:
+          return [];
+      }
+    default:
+      return [];
+  }
+}
+
+function playVideo() {
+  const videoPlayer = document.getElementById('videoPlayer');
+  videoPlayer.src = `${videoFile}`;
+  videoPlayer.play();
+
+  let currentSceneIndex = 0;
+  let lastDownloadTime = 0;
+
+  videoPlayer.ontimeupdate = function() {
+    const currentTime = videoPlayer.currentTime;
+    console.log(`Current Time: ${currentTime}, Scene Index: ${currentSceneIndex}`);
+
+    if (currentSceneIndex < sceneDurations.length && currentTime >= sceneDurations[currentSceneIndex]) {
+      videoPlayer.pause();
+      const currentEmotionLabel = emotionLabels[currentSceneIndex];
+      console.log(`Downloading CSV for Emotion: ${currentEmotionLabel}`);
+      downloadCSV(currentEmotionLabel); 
+      currentSceneIndex++;
+      lastDownloadTime = currentTime;
+      videoPlayer.play();
+    }
+  };
+
+  videoPlayer.onended = function() {
+    if (lastDownloadTime < videoPlayer.duration) {
+      const currentEmotionLabel = emotionLabels[currentSceneIndex];
+      console.log(`Downloading CSV for Final Emotion: ${currentEmotionLabel}`);
+      downloadCSV(currentEmotionLabel);
+    }
+    stopRecording();
+    closePopup();
+  };
+}
+
+    function throttle(func, delay) {
+      let lastCallTime = 0;
+      return function (...args) {
+        const now = Date.now();
+        if (now - lastCallTime >= delay) {
+          lastCallTime = now;
+          func.apply(this, args);
+        }
+      };
+    }
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        let r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    let participantCounter = 1;
+
+    function generateParticipantId() {
+      const uniqueId = Math.random().toString(36).substr(2, 5);
+      const participantId = `participant_${participantCounter}_${uniqueId}`;
+      participantCounter++;
+      return participantId;
+    }
+
+    // function startNewSession() {
+    //   userId = generateUUID();
+    //   sessionId = generateUUID();
+    //   emotionData = [];
+    // }
+    function startNewSession() {
+      userId = generateParticipantId();
+      sessionId = generateUUID();
+      emotionData = [];
+    }
+
+    function startRecording() {
+      isRecording = true;
+      startNewSession();
+      $('#start_recording').prop('disabled', true);
+      $('#stop_recording').prop('disabled', false);
+      predominantEmotionInterval = setInterval(savePredominantEmotion, 5000);
+    }
+
+    function stopRecording() {
+      isRecording = false;
+      $('#start_recording').prop('disabled', false);
+      $('#stop_recording').prop('disabled', true);
+      clearInterval(predominantEmotionInterval);
+      downloadPredominantEmotionCSV();
+    }
+
+    async function sendEmotionData(emotions) {
+      if (!responsesActivated) return;
+
+      const response = await fetch('http://localhost:5000/receive_emotion', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify(emotions)
+      });
+      console.log(emotions);
+      if (!response.ok) {
+        console.error('Error sending emotion data:', response.status);
+      } else {
+        console.log('Emotion data sent successfully');
+      }
+    }
+
+    function saveEmotionData(emotions, apiName) {
+      if (!isRecording) return;
+
+      const prefixedEmotions = {};
+      for (const key in emotions) {
+        if (key === 'asSortedArray' && apiName === 'Face API') {
+          continue;
+        }
+
+        let value = emotions[key];
+
+        if (value === null || value === undefined || isNaN(value)) {
+          value = 0;
+        }
+
+        if (apiName === 'Face API') {
+          value *= 100;
+        }
+
+        prefixedEmotions[apiName + "_" + key] = value;
+      }
+
+      const timestamp = new Date().toLocaleString();  //new Date().toISOString();
+      const data = {
+        userId: userId,
+        sessionId: sessionId,
+        timestamp: timestamp,
+        ...prefixedEmotions,
+        apiName: apiName
+      };
+      emotionData.push(data);
+
+      if (apiName === 'Face API') {
+        faceApiData = prefixedEmotions;
+      } else if (apiName === 'Affectiva') {
+        affectivaData = prefixedEmotions;
+      }
+
+      if (faceApiData && affectivaData) {
+        const combinedData = {
+          face_api_data: faceApiData,
+          affectiva_data: affectivaData
+        };
+        sendEmotionData(combinedData);
+        faceApiData = null;
+        affectivaData = null;
+      }
+    }
+
+    function savePredominantEmotion() {
+      if (!isRecording) return;
+
+      const emotions = {
+        happy: Number($('#happiness').text()),
+        sad: Number($('#sadness').text()),
+        angry: Number($('#angry').text()),
+        joy: Number($('#joy_prob').text()),
+        sadness: Number($('#sadness_prob').text()),
+        anger: Number($('#anger_prob').text())
+      };
+
+      const predominantEmotion = Object.keys(emotions).reduce((a, b) => emotions[a] > emotions[b] ? a : b);
+
+      const timestamp = new Date().toLocaleString(); //Date().toISOString();
+      const data = {
+        userId: userId,
+        sessionId: sessionId,
+        timestamp: timestamp,
+        predominantEmotion: predominantEmotion
+      };
+
+      predominantEmotionData.push(data);
+    }
+
+    function downloadCSV(emotionLabel) {
+      console.log(`currentSetIdentifier: ${currentSetIdentifier}`);
+      if (emotionData.length === 0) {
+        console.log("No emotion data to download.");
+        return;
+      }
+
+      const setIdentifier = currentSetIdentifier.split('_')[0];
+      console.log(`setIdentifier: ${setIdentifier}`);
+      const variation = currentSetIdentifier.split('_')[1];
+      console.log(`variation: ${variation}`);
+      const setNumber = currentSetIdentifier.split('_')[2];
+      const participantId = userId;
+      //const fileName = `emotion_data_${setIdentifier}_${setNumber}_${participantId}_${emotionLabel}.csv`;
+      const fileName = `emotion_data_${setIdentifier}_${variation}_${setNumber}_${participantId}_${emotionLabel}.csv`;
+
+      console.log(`Saving File: ${fileName}`);
+  let allKeys = new Set();
+  emotionData.forEach(data => {
+    Object.keys(data).forEach(key => {
+      if (!['userId', 'sessionId', 'timestamp', 'apiName'].includes(key)) {
+        allKeys.add(key);
+      }
+    });
+  });
+  allKeys = [...allKeys];
+
+  const headers = ['User ID', 'Session ID', 'Timestamp', ...allKeys, 'API Name'];
+  const rows = emotionData.map(data => {
+    const row = [
+      data.userId,
+      data.sessionId,
+      data.timestamp,
+      ...allKeys.map(key => data[key] !== undefined ? data[key].toFixed(2) : '0'),
+      data.apiName
+    ];
+    return row;
+  });
+
+  const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', fileName);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+         function downloadPredominantEmotionCSV() {
+           if (predominantEmotionData.length === 0) {
+
+             return;
+           }
+
+           const headers = ['User ID', 'Session ID', 'Timestamp', 'Predominant Emotion'];
+           const rows = predominantEmotionData.map(data => [data.userId, data.sessionId, data.timestamp, data.predominantEmotion]);
+           const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+
+           const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+           const link = document.createElement('a');
+           const url = URL.createObjectURL(blob);
+           link.setAttribute('href', url);
+           link.setAttribute('download', `predominant_emotion_data_${sessionId}.csv`);
+           link.style.visibility = 'hidden';
+           document.body.appendChild(link);
+           link.click();
+           document.body.removeChild(link);
+         }
+
+        async function onPlay() {
+          const videoEl = $('#inputVideo').get(0);
+          if (videoEl.paused || videoEl.ended) return setTimeout(() => onPlay());
+
+          let throttledUpdateFaceAPI = throttle(async function () {
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.5 });
+            const result = await faceapi.detectSingleFace(videoEl, options).withFaceExpressions();
+
+            if (result) {
+              const canvas = $('#overlay').get(0);
+              const dims = faceapi.matchDimensions(canvas, videoEl, true);
+              const resizedResult = faceapi.resizeResults(result, dims);
+              const minConfidence = 0.05;
+
+              faceapi.draw.drawDetections(canvas, resizedResult);
+              faceapi.draw.drawFaceExpressions(canvas, resizedResult, minConfidence);
+
+              const emotions = result.expressions;
+              $('#neutral').text((emotions.neutral * 100).toFixed(0));
+              $('#happiness').text((emotions.happy * 100).toFixed(0));
+              $('#sadness').text((emotions.sad * 100).toFixed(0));
+              $('#angry').text((emotions.angry * 100).toFixed(0));
+              $('#fearful').text((emotions.fearful * 100).toFixed(0));
+              $('#disgusted').text((emotions.disgusted * 100).toFixed(0));
+              $('#surprised').text((emotions.surprised * 100).toFixed(0));
+
+              saveEmotionData(emotions, 'Face API');
+            } else {
+              $('#neutral, #happiness, #sadness, #angry, #fearful, #disgusted, #surprised').text('0');
+              const canvas = $('#overlay').get(0);
+              const context = canvas.getContext('2d');
+              context.clearRect(0, 0, canvas.width, canvas.height);
+            }
+          }, 50);
+
+          await throttledUpdateFaceAPI();
+
+          setTimeout(() => onPlay());
+        }
+
+        async function run() {
+            await faceapi.loadTinyFaceDetectorModel('/');
+            await faceapi.loadFaceExpressionModel('/');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+            const videoEl = $('#inputVideo').get(0);
+            videoEl.srcObject = stream;
+
+            const divRoot = $('#affdex_elements').get(0);
+            const width = 640;
+            const height = 480;
+            const faceMode = affdex.FaceDetectorMode.LARGE_FACES;
+            const detector = new affdex.CameraDetector(divRoot, width, height, faceMode);
+            detector.detectAllEmotions();
+            detector.detectAllExpressions();
+            detector.start();
+
+            let throttledUpdateAffectiva = throttle(function (faces, image, timestamp) {
+              const affectiva_canvas = $('#affectiva_overlay').get(0);
+              const affectiva_context = affectiva_canvas.getContext('2d');
+              affectiva_context.clearRect(0, 0, affectiva_canvas.width, affectiva_canvas.height);
+
+              if (faces.length > 0) {
+                const face = faces[0];
+                const emotions = faces[0].emotions;
+                $('#joy_prob').text(emotions.joy.toFixed(0));
+                $('#sadness_prob').text(emotions.sadness.toFixed(0));
+                $('#disgust_prob').text(emotions.disgust.toFixed(0));
+                $('#contempt_prob').text(emotions.contempt.toFixed(0));
+                $('#anger_prob').text(emotions.anger.toFixed(0));
+                $('#fear_prob').text(emotions.fear.toFixed(0));
+                $('#surprise_prob').text(emotions.surprise.toFixed(0));
+                $('#valence_prob').text(emotions.valence.toFixed(0));
+                $('#engagement_prob').text(emotions.engagement.toFixed(0));
+
+                saveEmotionData(emotions, 'Affectiva');
+
+                face.featurePoints = Object.values(face.featurePoints);
+
+                if (Array.isArray(face.featurePoints)) {
+                  drawAffectivaEmotions(affectiva_context, face);
+                } else {
+
+                }
+              } else {
+                $('#joy_prob, #sadness_prob, #disgust_prob, #contempt_prob, #anger_prob, #fear_prob, #surprise_prob, #valence_prob, #engagement_prob').text('0');
+              }
+            }, 50);
+
+            detector.addEventListener('onImageResultsSuccess', throttledUpdateAffectiva);
+
+            onPlay();
+          }
+
+         function drawAffectivaEmotions(context, face) {
+           const emotions = face.emotions;
+           const boundingBox = face.featurePoints.reduce((bbox, point) => {
+             return {
+               x: Math.min(bbox.x, point.x),
+               y: Math.min(bbox.y, point.y),
+               width: Math.max(bbox.width, point.x - bbox.x),
+               height: Math.max(bbox.height, point.y - bbox.y)
+             };
+           }, {x: Infinity, y: Infinity, width: 0, height: 0});
+
+           const padding = 5; 
+           const textX = boundingBox.x + boundingBox.width + padding;
+           const textY = boundingBox.y + padding;
+           const lineHeight = 18; 
+
+           context.font = '12px Arial';
+           context.strokeStyle = 'green';
+           context.lineWidth = 2;
+           context.strokeRect(boundingBox.x, boundingBox.y, boundingBox.width, boundingBox.height);
+           context.fillStyle = 'rgba(0, 0, 0, 0.5)';
+           context.fillRect(textX - padding, textY - lineHeight, 150, lineHeight * 4);
+           context.fillStyle = 'white';
+           const emotionEntries = Object.entries(emotions);
+           emotionEntries.sort((a, b) => b[1] - a[1]);
+           const topEmotions = emotionEntries.slice(0, 4);
+           topEmotions.forEach(([emotion, probability], index) => {
+             context.fillText(`${emotion}: ${probability.toFixed(2)}`, textX, textY + lineHeight * index);
+           });
+         }
+
+         $(document).ready(function() {
+           $('#start_recording').click(startRecording);
+           $('#stop_recording').click(stopRecording);
+           $('#activate_responses').click(function() {
+             responsesActivated = true;
+             $('#activate_responses').prop('disabled', true);
+             $('#deactivate_responses').prop('disabled', false);
+           });
+
+           $('#deactivate_responses').click(function() {
+             responsesActivated = false;
+             $('#activate_responses').prop('disabled', false);
+             $('#deactivate_responses').prop('disabled', true);
+           });
+           run();
+         });
+        $('#activate_experiment_First_set_ABC').click(() => activateExperiment('First_set', 'ABC'));
+        $('#activate_experiment_First_set_BCA').click(() => activateExperiment('First_set', 'BCA'));
+        $('#activate_experiment_First_set_CAB').click(() => activateExperiment('First_set', 'CAB'));
+        $('#activate_experiment_Second_set_ABC').click(() => activateExperiment('Second_set', 'ABC'));
+        $('#activate_experiment_Second_set_BCA').click(() => activateExperiment('Second_set', 'BCA'));
+        $('#activate_experiment_Second_set_CAB').click(() => activateExperiment('Second_set', 'CAB'));
+        $('#activate_experiment_Third_set_ABC').click(() => activateExperiment('Third_set', 'ABC'));
+        $('#activate_experiment_Third_set_BCA').click(() => activateExperiment('Third_set', 'BCA'));
+        $('#activate_experiment_Third_set_CAB').click(() => activateExperiment('Third_set', 'CAB'));
+
+         </script>
+
+   </body>
+</html>
